@@ -14,6 +14,14 @@ from tqdm import tqdm
 from streaming_llm.utils import load, download_url, load_jsonl
 from streaming_llm.enable_streaming_llm import enable_streaming_llm
 
+import os
+from llama_index import ServiceContext, LLMPredictor, OpenAIEmbedding, PromptHelper
+from llama_index.llms import OpenAI
+from llama_index.text_splitter import TokenTextSplitter
+from llama_index.node_parser import SimpleNodeParser
+from llama_index import VectorStoreIndex, SimpleDirectoryReader
+from llama_index import set_global_service_context
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 @torch.no_grad()
 def greedy_generate(model, tokenizer, input_ids, past_key_values, max_gen_len):
@@ -33,6 +41,7 @@ def greedy_generate(model, tokenizer, input_ids, past_key_values, max_gen_len):
             use_cache=True,
         )
         past_key_values = outputs.past_key_values
+        # put past key values into vector database
         pred_token_idx = outputs.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
         generated_ids.append(pred_token_idx.item())
         generated_text = (
