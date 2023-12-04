@@ -22,6 +22,15 @@ from llama_index.node_parser import SimpleNodeParser
 from llama_index import VectorStoreIndex, SimpleDirectoryReader
 from llama_index import set_global_service_context
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from sentence_transformers import SentenceTransformer
+
+import datasets
+from datasets import load_dataset
+import pandas as pd
+import chromadb
+from chromadb.api.types import Documents, Embeddings
+
+id_counter = 0
 
 @torch.no_grad()
 def greedy_generate(model, tokenizer, input_ids, past_key_values, max_gen_len):
@@ -41,7 +50,6 @@ def greedy_generate(model, tokenizer, input_ids, past_key_values, max_gen_len):
             use_cache=True,
         )
         past_key_values = outputs.past_key_values
-        # put past key values into vector database
         pred_token_idx = outputs.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
         generated_ids.append(pred_token_idx.item())
         generated_text = (
@@ -68,6 +76,32 @@ def greedy_generate(model, tokenizer, input_ids, past_key_values, max_gen_len):
 
 @torch.no_grad()
 def streaming_inference(model, tokenizer, prompts, kv_cache=None, max_gen_len=1000):
+    documents = SimpleDirectoryReader(input_dir='data').load_data()
+    text_splitter = TokenTextSplitter(
+        separator=" ",
+        chunk_size=1024,
+        chunk_overlap=20,
+        backup_separators=["\n"],
+        tokenizer = AutoTokenizer.from_pretrained(
+                # Should replace with model.name or something
+                "lmsys/vicuna-13b-v1.3",
+                trust_remote_code=True,
+            )
+        )
+
+    node_parser = SimpleNodeParser.from_defaults(
+        text_splitter = TokenTextSplitter )
+
+    embed_model = SentenceTransformer("BAAI/bge-large-en-v1.5")
+    chroma_client = chromadb.Client()
+    chroma_client.delete_collection(name="my_collection")
+    collection = chroma_client.create_collection(name="my_collection")
+    results = collection.query(
+        query_texts=["cars"],
+        n_results=1
+    )
+    print(results)
+
     past_key_values = None
     for idx, prompt in enumerate(prompts):
         prompt = "USER: " + prompt + "\n\nASSISTANT: "
@@ -78,6 +112,13 @@ def streaming_inference(model, tokenizer, prompts, kv_cache=None, max_gen_len=10
         if kv_cache is not None:
             space_needed = seq_len + max_gen_len
             past_key_values = kv_cache.evict_for_space(past_key_values, space_needed)
+            # put these evicted values into database
+            evicted_tokens = 
+            collection.add(
+                documents=[past_key_values],
+                ids=[id_counter]
+            )
+            id_counter += 1
 
         past_key_values = greedy_generate(
             model, tokenizer, input_ids, past_key_values, max_gen_len=max_gen_len

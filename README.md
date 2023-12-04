@@ -26,7 +26,8 @@ conda activate streaming
 
 pip install torch torchvision torchaudio
 pip install transformers==4.33.0 accelerate datasets evaluate wandb scikit-learn scipy sentencepiece
-pip install llama-index tiktoken
+pip install llama-index tiktoken sentence-transformers
+pip install -q chromadb
 
 python setup.py develop
 ```
