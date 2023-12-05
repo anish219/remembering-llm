@@ -31,7 +31,6 @@ from streaming_llm.enable_streaming_llm import enable_streaming_llm
 
 # id_counter = 0
 
-current_index = 0
 tokens = []
 kvs = None
 
@@ -43,6 +42,7 @@ def greedy_generate(model, tokenizer, input_ids, past_key_values, max_gen_len, k
         use_cache=True,
     )
     past_key_values = outputs.past_key_values
+    global kvs
     if kv_cache:
         kvs = kv_cache.combine_kvs(kvs, past_key_values)
     pred_token_idx = outputs.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
@@ -110,13 +110,23 @@ def streaming_inference(model, tokenizer, prompts, kv_cache=None, max_gen_len=10
     # )
     # print(results)
 
+    global tokens
     past_key_values = None
     for idx, prompt in enumerate(prompts):
         prompt = "USER: " + prompt + "\n\nASSISTANT: "
         print("\n" + prompt, end="")
         input_ids = tokenizer(prompt, return_tensors="pt").input_ids
         input_ids = input_ids.to(model.device)
-        tokens += tokenizer.decode(input_ids)
+        tokens += (
+            tokenizer.decode(
+                input_ids.flatten().tolist(),
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=True,
+                spaces_between_special_tokens=False,
+            )
+            .strip()
+            .split(" ")
+        )
         seq_len = input_ids.shape[1]
         if kv_cache is not None:
             space_needed = seq_len + max_gen_len
