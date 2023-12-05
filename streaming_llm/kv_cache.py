@@ -40,7 +40,7 @@ class StartRecentKVCache:
         recent_size=512,
         k_seq_dim=2,
         v_seq_dim=2,
-        context_size=30,
+        context_size=300,
     ):
         print(f"StartRecentKVCache: {start_size}, {recent_size}")
         self.start_size = start_size
