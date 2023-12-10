@@ -43,8 +43,9 @@ def greedy_generate(model, tokenizer, input_ids, past_key_values, max_gen_len, k
     )
     past_key_values = outputs.past_key_values
     global kvs
-    if kv_cache:
-        kvs = kv_cache.combine_kvs(kvs, past_key_values)
+    global tokens
+    if kv_cache is not None:
+        kvs = kv_cache.combine_kvs(kvs, kv_cache.get_new_kvs(past_key_values))
     pred_token_idx = outputs.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
     generated_ids = [pred_token_idx.item()]
     pos = 0
@@ -55,14 +56,24 @@ def greedy_generate(model, tokenizer, input_ids, past_key_values, max_gen_len, k
             use_cache=True,
         )
         past_key_values = outputs.past_key_values
-        if kv_cache:
-            kvs = kv_cache.combine_kvs(kvs, past_key_values)
+        if kv_cache is not None:
+            kvs = kv_cache.combine_kvs(kvs, kv_cache.get_new_kvs(past_key_values))
         # put past key values into vector database
         pred_token_idx = outputs.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
         generated_ids.append(pred_token_idx.item())
         generated_text = (
             tokenizer.decode(
                 generated_ids,
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=True,
+                spaces_between_special_tokens=False,
+            )
+            .strip()
+            .split(" ")
+        )
+        tokens += (
+            tokenizer.decode(
+                [pred_token_idx.item()],
                 skip_special_tokens=True,
                 clean_up_tokenization_spaces=True,
                 spaces_between_special_tokens=False,
@@ -140,7 +151,7 @@ def streaming_inference(model, tokenizer, prompts, kv_cache=None, max_gen_len=10
             # id_counter += 1
 
         past_key_values = greedy_generate(
-            model, tokenizer, input_ids, past_key_values, max_gen_len=max_gen_len
+            model, tokenizer, input_ids, past_key_values, max_gen_len=max_gen_len, kv_cache=kv_cache
         )
 
 
