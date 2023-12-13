@@ -122,25 +122,29 @@ def streaming_inference(model, tokenizer, prompts, kv_cache=None, max_gen_len=10
     # print(results)
 
     global tokens
+    global kvs
     past_key_values = None
     for idx, prompt in enumerate(prompts):
         prompt = "USER: " + prompt + "\n\nASSISTANT: "
         print("\n" + prompt, end="")
         input_ids = tokenizer(prompt, return_tensors="pt").input_ids
         input_ids = input_ids.to(model.device)
-        tokens += (
-            tokenizer.decode(
-                input_ids.flatten().tolist(),
-                skip_special_tokens=True,
-                clean_up_tokenization_spaces=True,
-                spaces_between_special_tokens=False,
+        ids = input_ids.flatten().tolist()
+        for i in range(len(ids)):
+            tokens += (
+                tokenizer.decode(
+                    ids[i:i+1],
+                    skip_special_tokens=True,
+                    clean_up_tokenization_spaces=True,
+                    spaces_between_special_tokens=False,
+                )
+                .strip()
+                .split(" ")
             )
-            .strip()
-            .split(" ")
-        )
         seq_len = input_ids.shape[1]
         if kv_cache is not None:
             space_needed = seq_len + max_gen_len
+            kvs = kv_cache.combine_kvs(kvs, kv_cache.get_new_kvs(past_key_values))
             past_key_values = kv_cache.evict_for_space(past_key_values, space_needed)
             # put these evicted values into database
             # evicted_tokens = 
