@@ -24,7 +24,7 @@ def main(args):
     nlls = []
     metrics = []
     loss_fn = CrossEntropyLoss(reduction="none")
-    metric_fn = load_metric(args.dataset_name)
+    metric_fn = load_metric(args.dataset_name).compute
     past_key_values = None
 
     if args.enable_start_recent_kv_cache:
